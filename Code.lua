@@ -1,5 +1,3 @@
-````lua
-
 --Made by davedesito.
 
 --!strict
@@ -266,5 +264,3 @@ RunService.PostSimulation:Connect(function(deltaTime: number)
 end)
 
 return LerpService
-
-````
