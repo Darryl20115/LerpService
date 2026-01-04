@@ -55,3 +55,8 @@ Whenever a lerp is stopped this signal will recieve a message.
 Lerp.Deleted
 ````
 Whenever a lerp is deleted this signal will recieve a message.
+
+# Change Log
+
+## v1.0.1
+Added connection type strict support.
