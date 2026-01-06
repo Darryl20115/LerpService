@@ -1,8 +1,8 @@
-# LerpService
+# LerpService #
 LerpService is a library that allows you to create Lerps and easily modify them.
 
 
-# Documentation
+# Documentation #
 
 ````lua
 LerpService.create(Object: BasePart,Cframe: CFrame,Goal: CFrame,LerpInfo: LerpInfo)
@@ -22,7 +22,89 @@ If lerp is infinite and the duration is 0, LerpService will warn you.
 
 This lerp info should be passed to the ````LerpService.create()```` method.
 
-# Lerp
+# Lerp #
+# Properties #
+### All of the properties can be modified ###
+#### Not recommended to modify the properties tagged as read-only. ####
+-----------------------------
+````lua
+Lerp.Object : BasePart
+````
+The object the lerp was created with, this property will be nill if a Cframe was passed during the creation of the lerp.
+
+-----------------------------
+````lua
+Lerp.Playing : boolean
+````
+Lerp is playing
+(Setting the lerp playing to true will not play the lerp, use ````Lerp:Play()```` instead) <br/>
+<strong/> (This property should be used as read-only) <strong/>
+
+-----------------------------
+````lua
+Lerp.Info : LerpInfo
+````
+The LerpInfo table the lerp was created with.
+
+-----------------------------
+````lua
+Lerp.Id : number
+````
+The id of the lerp when created. 
+<strong/> (This property should be used as read-only) <strong/>
+
+-----------------------------
+````lua
+Lerp.Time
+````
+Time in seconds the lerp has been playing through.
+
+-----------------------------
+````lua
+Lerp.CurrentCFrame
+````
+The CFrame the lerp is currently in.
+(This property only is created if a Cframe is passed and no object is passed)
+
+-----------------------------
+````lua
+Lerp.Goal
+````
+The CFrame the lerp is moving to.
+
+-----------------------------
+````lua
+Lerp.DTime
+````
+The time that has gone through since delay started and finished.
+If its 0 then the lerp is not on delay.
+
+-----------------------------
+````lua
+Lerp.Loop
+````
+The current amount of routes lerp has completed.
+
+-----------------------------
+````lua
+Lerp.Alpha
+````
+The alpha the lerp was sent to play with.
+
+-----------------------------
+````lua
+Lerp.Reverse
+````
+Indicates if the lerp is doing a reverse move.
+
+-----------------------------
+````lua
+Lerp.Starting
+````
+The starting cframe of the lerp.
+
+
+# Methods
 
 ````lua
 Lerp:Play(alpha: number)
@@ -60,3 +142,6 @@ Whenever a lerp is deleted this signal will recieve a message.
 
 ## v1.0.1
 Added connection type strict support.
+
+## v1.0.2
+Optimized LerpService.
