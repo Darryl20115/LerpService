@@ -102,7 +102,6 @@ end
 ]]
 function LerpMeta:Play(alpha: number)
 	-- Prevent yielding
-	task.spawn(function()
 		local self = self :: Lerp
 		if not alpha then Debug.warn("Alpha not provided, using default.") alpha = 1 end
 		if not self.Object and not self.Cframe then Debug.warn("No cframe and no object provided.") return end
@@ -156,8 +155,6 @@ function LerpMeta:Play(alpha: number)
 		elseif self.Object and not self.CurrentCFrame then
 			self.Object.CFrame = CFrameToLerp
 		end
-
-	end)
 end
 
 --[[
@@ -196,7 +193,6 @@ RunService.PostSimulation:Connect(function(deltaTime: number)
 		local alpha = self.Time / Duration
 		
 		-- Prevent from yielding
-		task.spawn(function()
 			if alpha >= AlphaGoal then
 				-- If alpha goal completed
 				if self.Info.DelayTime >= 0 then
@@ -259,7 +255,7 @@ RunService.PostSimulation:Connect(function(deltaTime: number)
 				self:Play(TweenService:GetValue(alpha,self.Info.Style,self.Info.Direction))
 				self.DTime = 0
 			end
-		end)
+			continue
 	end
 end)
 
