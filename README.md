@@ -103,6 +103,11 @@ Lerp.Starting
 ````
 The starting cframe of the lerp.
 
+-----------------------------
+````lua
+Lerp.AlphaPoints
+````
+Table containing all of the ````AlphaPoint````s created.
 
 # Methods
 
@@ -121,6 +126,11 @@ Lerp:Delete()
 ````
 The lerp object will be deleted.
 
+````lua
+Lerp:CreateAlphaPoint(alpha: number) >>>>>> v1.0.3
+````
+Creates a ````AlphaPoint```` inside the lerp.
+
 # Signals
 
 ````lua
@@ -138,6 +148,11 @@ Lerp.Deleted
 ````
 Whenever a lerp is deleted this signal will recieve a message.
 
+````lua
+Lerp.PointReached
+````
+Whenever an AlphaPoint is reached this event will recieve a message with the AlphaPoint table containing the Alpha.
+
 # Change Log
 
 ## v1.0.1
@@ -145,3 +160,8 @@ Added connection type strict support.
 
 ## v1.0.2
 Optimized LerpService.
+
+## v1.0.3
+Added ````AlphaPoints```` property.
+Added ````CreateAlphaPoint```` method.
+Added ````PointReached```` signal.
