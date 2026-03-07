@@ -17,10 +17,13 @@ LerpMeta.__index = LerpMeta
 
 local Lerps = {} :: {[any]: any}
 
+local OldDt = 0
+
 export type Lerp = typeof(setmetatable({ }::{
-	Completed     : any,
-	Stopped       : any,
-	Deleted       : any,
+	Completed     : RBXScriptSignal,
+	Stopped       : RBXScriptSignal,
+	Deleted       : RBXScriptSignal,
+	PointReached  : RBXScriptSignal,
 	Object        : BasePart,
 	Starting      : CFrame,
 	DTime         : number,
@@ -32,7 +35,8 @@ export type Lerp = typeof(setmetatable({ }::{
 	Alpha         : number,
 	Goal          : CFrame,
 	Info     	  : Type.LerpInfo,
-	CurrentCFrame : CFrame
+	CurrentCFrame : CFrame,
+	AlphaPoints   : {[string | number]: number | string?}
 }
 , LerpMeta))
 
@@ -52,24 +56,26 @@ If you provide both, <strong>Object</strong> and <strong>Cframe</strong> then ob
 function LerpService.create(Object: BasePart?,Cframe: CFrame?,Goal : CFrame, LerpInfo: Type.LerpInfo): Lerp
 	--local Name: any, Value: any = Utils.GetTableValues(Property)
 	if Object and Cframe then Debug.warn("2 cframes have been provided, using Object.") Cframe = nil end
-	
+
 	local LerpObject = {}
 	setmetatable(LerpObject,LerpMeta)
-	
-	LerpObject.Completed = GoodSignal.new()
-	LerpObject.Stopped   = GoodSignal.new()
-	LerpObject.Deleted   = GoodSignal.new()
-	LerpObject.DTime     = 0
-	LerpObject.Loop      = 0 				:: number
-	LerpObject.Time      = 0
-	LerpObject.Playing   = false
-	LerpObject.Reverse   = false
-	LerpObject.Id        = #Lerps + 1
-	LerpObject.Alpha     = 0
-	LerpObject.Goal      = Goal              :: CFrame
+
+	LerpObject.Completed 	= GoodSignal.new()
+	LerpObject.Stopped   	= GoodSignal.new()
+	LerpObject.Deleted   	= GoodSignal.new()
+	LerpObject.PointReached = GoodSignal.new()
+	LerpObject.DTime     	= 0
+	LerpObject.Loop      	= 0 				:: number
+	LerpObject.Time      	= 0
+	LerpObject.Playing   	= false
+	LerpObject.Reverse   	= false
+	LerpObject.Id        	= #Lerps + 1
+	LerpObject.Alpha     	= 0
+	LerpObject.Goal         = Goal              :: CFrame
+	LerpObject.AlphaPoints  = {}
 	LerpObject.Info      = LerpInfo or LerpService.NewLerpInfo(1,Enum.EasingStyle.Linear,Enum.EasingDirection.Out,0,false,0) :: Type.LerpInfo
 	Utils.CreationWarnings(LerpObject:: {[any]: any}, LerpObject.Info:: Type.LerpInfo)
-	
+
 	if Object and not Cframe then
 		LerpObject.Object    = Object 			:: BasePart
 		LerpObject.Starting  = Object.CFrame    :: CFrame
@@ -78,7 +84,7 @@ function LerpService.create(Object: BasePart?,Cframe: CFrame?,Goal : CFrame, Ler
 		LerpObject.Starting  = Cframe    :: CFrame
 		LerpObject.CurrentCFrame = Cframe
 	end
-	
+
 	Debug.print("Lerp ("..LerpObject.Id..") created:",LerpObject)
 	return LerpObject :: Lerp
 end
@@ -102,41 +108,41 @@ end
 ]]
 function LerpMeta:Play(alpha: number)
 	-- Prevent yielding
-		local self = self :: Lerp
-		if not alpha then Debug.warn("Alpha not provided, using default.") alpha = 1 end
-		if not self.Object and not self.Cframe then Debug.warn("No cframe and no object provided.") return end
-		local CFrameToLerp: CFrame
-		if self.Object then
-			CFrameToLerp = self.Object.CFrame
-		else
-			CFrameToLerp = self.Cframe
-		end
-		
+	local self = self :: Lerp
+	if not alpha then Debug.warn("Alpha not provided, using default.") alpha = 1 end
+	if not self.Object and not self.Cframe then Debug.warn("No cframe and no object provided.") return end
+	local CFrameToLerp: CFrame
+	if self.Object then
+		CFrameToLerp = self.Object.CFrame
+	else
+		CFrameToLerp = self.Cframe
+	end
+
 		--[[
 			If duration is greater than 0 and the lerp isnt playing
 			then, yield, and insert lerp to table.
 			
 			Else, yield and complete the lerp instantly.
 		]]
-		if self.Info.Duration > 0 then
-			if self.Playing == false then
-				self.Playing = true
-				task.wait(self.Info.DelayTime)
-
-				self.Alpha   = alpha
-				self.Id      = #Lerps + 1
-				table.insert(Lerps,self)
-				return
-			end
-		else
+	if self.Info.Duration > 0 then
+		if self.Playing == false then
+			self.Playing = true
 			task.wait(self.Info.DelayTime)
-			local loop: number = self.Loop
-			self.Loop += 1
-			self.Completed:Fire()
+
+			self.Alpha   = alpha
+			self.Id      = #Lerps + 1
+			table.insert(Lerps,self)
+			return
 		end
-		
-		local Value: CFrame = self.Goal
-		local Starting: CFrame = self.Starting
+	else
+		task.wait(self.Info.DelayTime)
+		local loop: number = self.Loop
+		self.Loop += 1
+		self.Completed:Fire()
+	end
+
+	local Value: CFrame = self.Goal
+	local Starting: CFrame = self.Starting
 		--[[
 			If reverse then, object starting point is goal, and goal
 			is the starting point.
@@ -145,17 +151,55 @@ function LerpMeta:Play(alpha: number)
 			the goal is the goal.
 		
 			]]
-		if self.Reverse then
-			CFrameToLerp = Value:Lerp(self.Starting, alpha)
-		else
-			CFrameToLerp = Starting:Lerp(self.Goal, alpha)
-		end
-		if not self.Object and self.CurrentCFrame then
-			self.CurrentCFrame = CFrameToLerp
-		elseif self.Object and not self.CurrentCFrame then
-			self.Object.CFrame = CFrameToLerp
-		end
+	if self.Reverse then
+		CFrameToLerp = Value:Lerp(self.Starting, alpha)
+	else
+		CFrameToLerp = Starting:Lerp(self.Goal, alpha)
+	end
+	if not self.Object and self.CurrentCFrame then
+		self.CurrentCFrame = CFrameToLerp
+	elseif self.Object and not self.CurrentCFrame then
+		self.Object.CFrame = CFrameToLerp
+	end
 end
+
+--[[
+	Creates an point, every time a point is reached, PointReached will recieve
+	a signal, and it will pass an identifier which will indicate what point has
+	been reached.
+	
+	<strong>identifier</strong> is the key or name of the point.
+	<strong>alpha</strong> is the points position in "line".
+	<strong>margin</strong> is the margin of error the point haves.
+]]
+function LerpMeta:CreateAlphaPoint(identifier: string?, alpha: number,margin: number)
+	if not identifier or not alpha then Debug.warn("No indentifier/alpha passed.") end
+
+	if not identifier then identifier = Utils.Length(self.AlphaPoints) + 1 end
+
+	self.AlphaPoints[identifier] = {Alpha = alpha}
+end
+
+--[[
+Deletes the AlphaPoint found in AlphaPoints with his identifier.
+<sup>Alternatively you can use Lerp.AlphaPoints[identifier] = nil</sup>
+
+<strong>identifier</strong> is the key or name of the point.
+]]
+function LerpMeta:DeleteAlphaPoint(identifier: string)
+	if not identifier then Debug.warn("No identifier passed, returning.") return end
+	table.clear(self.AlphaPoints[identifier])
+	self.AlphaPoints[identifier] = nil
+end
+
+--[[
+Deletes all AlphaPoints in the lerp.
+<sup>Alternatively you can use table.clear(Lerp.AlphaPoints)</sup>
+]]
+function LerpMeta:ClearAlphaPoints()
+	table.clear(self.AlphaPoints)
+end
+
 
 --[[
 Stops the lerp from playing.
@@ -178,6 +222,7 @@ end
 
 RunService.PostSimulation:Connect(function(deltaTime: number)
 	-- Get all lerps
+	
 	for index, self : Lerp in pairs(Lerps) do
 		self.Time += deltaTime
 		local Duration = self.Info.Duration
@@ -187,75 +232,89 @@ RunService.PostSimulation:Connect(function(deltaTime: number)
 		else
 			CFrameToLerp = self.Cframe
 		end
-		
+
+
+
 		-- Add delta to lerp time
 		local AlphaGoal = self.Alpha
 		local alpha = self.Time / Duration
-		
+		for i,alphaPoint in pairs(self.AlphaPoints) do
+			local dt = deltaTime - OldDt
+			if dt == 0 then
+				dt = deltaTime
+			end
+			if alpha >= alphaPoint.Alpha and alpha <= alphaPoint.Alpha + dt then
+				warn(alpha,alpha - alphaPoint.Alpha)
+				self.PointReached:Fire(self.AlphaPoints[i])
+			end
+
+		end
+		if OldDt == 0 then OldDt = deltaTime end
+
 		-- Prevent from yielding
-			if alpha >= AlphaGoal then
-				-- If alpha goal completed
-				if self.Info.DelayTime >= 0 then
-					if self.DTime <= 0 then
-						self.Completed:Fire()
-					end
-					if self.DTime < self.Info.DelayTime then
-						self.DTime += deltaTime
-						return 
-					end
-				else
+		if alpha >= AlphaGoal then
+			-- If alpha goal completed
+			if self.Info.DelayTime >= 0 then
+				if self.DTime <= 0 then
 					self.Completed:Fire()
 				end
-				
-				-- Reset values
-				Utils.ResetLerp(self)
-				self.Loop += 1
-				
-				-- Verify repeat count
-				if self.Info.RepeatCount > 0 then
-					if self.Loop >= self.Info.RepeatCount then
-						table.remove(Lerps,index)
-					end
-				end
-				-- Verify loop
-				if self.Info.RepeatCount <= -1 or self.Info.RepeatCount > 0 then
-					self.Playing = true
-					
-					-- If reverses then set reverse to (not reverse)
-					if self.Info.Reverses then
-						self.Reverse = not self.Reverse
-						if not self.Reverse then
-							CFrameToLerp = self.Starting
-						else
-							CFrameToLerp = self.Goal
-						end
-						
-					else
-						CFrameToLerp = self.Starting
-					end
-					if not self.Object and self.CurrentCFrame then
-						self.CurrentCFrame = CFrameToLerp
-					elseif self.Object and not self.CurrentCFrame then
-						self.Object.CFrame = CFrameToLerp
-					end
-					self:Play(0)
-				elseif self.Info.RepeatCount == 0 then
-					-- If not looping, and repeat count = 0 then stop
-					if not self.Object and self.CurrentCFrame then
-						self.CurrentCFrame = self.Goal
-					elseif self.Object and not self.CurrentCFrame then
-						self.Object.CFrame = self.Goal
-					end
-					
-					self.Alpha = 0
-					table.remove(Lerps,index)
+				if self.DTime < self.Info.DelayTime then
+					self.DTime += deltaTime
+					return 
 				end
 			else
-				-- If goal hasnt been reached then play
-				self:Play(TweenService:GetValue(alpha,self.Info.Style,self.Info.Direction))
-				self.DTime = 0
+				self.Completed:Fire()
 			end
-			continue
+
+			-- Reset values
+			Utils.ResetLerp(self)
+			self.Loop += 1
+
+			-- Verify repeat count
+			if self.Info.RepeatCount > 0 then
+				if self.Loop >= self.Info.RepeatCount then
+					table.remove(Lerps,index)
+				end
+			end
+			-- Verify loop
+			if self.Info.RepeatCount <= -1 or self.Info.RepeatCount > 0 then
+				self.Playing = true
+
+				-- If reverses then set reverse to (not reverse)
+				if self.Info.Reverses then
+					self.Reverse = not self.Reverse
+					if not self.Reverse then
+						CFrameToLerp = self.Starting
+					else
+						CFrameToLerp = self.Goal
+					end
+
+				else
+					CFrameToLerp = self.Starting
+				end
+				if not self.Object and self.CurrentCFrame then
+					self.CurrentCFrame = CFrameToLerp
+				elseif self.Object and not self.CurrentCFrame then
+					self.Object.CFrame = CFrameToLerp
+				end
+				self:Play(0)
+			elseif self.Info.RepeatCount == 0 then
+				-- If not looping, and repeat count = 0 then stop
+				if not self.Object and self.CurrentCFrame then
+					self.CurrentCFrame = self.Goal
+				elseif self.Object and not self.CurrentCFrame then
+					self.Object.CFrame = self.Goal
+				end
+
+				self.Alpha = 0
+				table.remove(Lerps,index)
+			end
+		else
+			-- If goal hasnt been reached then play
+			self:Play(TweenService:GetValue(alpha,self.Info.Style,self.Info.Direction))
+			self.DTime = 0
+		end
+		continue
 	end
 end)
 
